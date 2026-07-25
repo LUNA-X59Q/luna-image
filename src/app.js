@@ -25,6 +25,7 @@ const el = {
   charList: $('charList'),
   charCount: $('charCount'),
   negativeTags: $('negativeTags'),
+  negativeRaw: $('negativeRaw'),
   negCount: $('negCount'),
   cardNegative: $('cardNegative'),
   optionList: $('optionList'),
@@ -57,7 +58,7 @@ const OPTION_LABELS = {
 
 const OPTION_ORDER = Object.keys(OPTION_LABELS);
 
-let current = { objectUrl: null, naiDict: null, raw: null, promptView: 'tags' };
+let current = { objectUrl: null, naiDict: null, raw: null, view: { prompt: 'tags', negative: 'tags' } };
 
 // ── 메타데이터 추출 ────────────────────────────────────────
 
@@ -188,12 +189,10 @@ function render(result, format) {
 
   setStatus('', null);
   el.cardPrompt.hidden = false;
-  renderPrompt(naiDict.prompt);
-  renderCharacters(naiDict.characters);
-
   el.cardNegative.hidden = false;
-  renderTags(el.negativeTags, naiDict.negative_prompt, '(비어 있음)');
-  el.negCount.textContent = countLabel(naiDict.negative_prompt);
+  renderText('prompt');
+  renderText('negative');
+  renderCharacters(naiDict.characters);
 
   const optionEntries = sortOptions(naiDict.option);
   el.cardOption.hidden = optionEntries.length === 0;
@@ -206,18 +205,31 @@ function render(result, format) {
   renderKeyValues(el.etcList, etcEntries, (key) => key);
 }
 
-function renderPrompt(prompt) {
-  el.tagCount.textContent = countLabel(prompt);
+/** 프롬프트와 네거티브 프롬프트는 보기 방식이 같아서 한 곳에서 그린다. */
+const TEXT_PANELS = {
+  prompt: { source: (d) => d?.prompt, tags: 'promptTags', raw: 'promptRaw', count: 'tagCount' },
+  negative: { source: (d) => d?.negative_prompt, tags: 'negativeTags', raw: 'negativeRaw', count: 'negCount' },
+};
 
-  if (current.promptView === 'tags') {
-    el.promptTags.hidden = false;
-    el.promptRaw.hidden = true;
-    renderTags(el.promptTags, prompt, '(비어 있음)');
+/** 현재 보기 방식을 반영한 텍스트. 복사할 때도 이 값을 쓴다. */
+function textForView(target) {
+  const text = TEXT_PANELS[target].source(current.naiDict) || '';
+  return current.view[target] === 'webui' ? convertToWebui(text) : text;
+}
+
+function renderText(target) {
+  const panel = TEXT_PANELS[target];
+  const text = panel.source(current.naiDict) || '';
+  el[panel.count].textContent = countLabel(text);
+
+  if (current.view[target] === 'tags') {
+    el[panel.tags].hidden = false;
+    el[panel.raw].hidden = true;
+    renderTags(el[panel.tags], text, '(비어 있음)');
   } else {
-    el.promptTags.hidden = true;
-    el.promptRaw.hidden = false;
-    el.promptRaw.textContent =
-      current.promptView === 'webui' ? convertToWebui(prompt) : prompt || '(비어 있음)';
+    el[panel.tags].hidden = true;
+    el[panel.raw].hidden = false;
+    el[panel.raw].textContent = textForView(target) || '(비어 있음)';
   }
 }
 
@@ -374,11 +386,8 @@ function countLabel(text) {
 // ── 복사 · 알림 ───────────────────────────────────────────
 
 const COPY_SOURCES = {
-  prompt: () => {
-    const prompt = current.naiDict?.prompt || '';
-    return current.promptView === 'webui' ? convertToWebui(prompt) : prompt;
-  },
-  negative: () => current.naiDict?.negative_prompt || '',
+  prompt: () => textForView('prompt'),
+  negative: () => textForView('negative'),
   chars: () =>
     (current.naiDict?.characters || [])
       .map((character) => character.prompt)
@@ -426,7 +435,7 @@ function formatBytes(bytes) {
 
 function reset() {
   if (current.objectUrl) URL.revokeObjectURL(current.objectUrl);
-  current = { objectUrl: null, naiDict: null, raw: null, promptView: current.promptView };
+  current = { objectUrl: null, naiDict: null, raw: null, view: current.view };
   el.previewImg.removeAttribute('src');
   el.preview.hidden = true;
   el.placeholder.hidden = false;
@@ -498,11 +507,12 @@ el.clearBtn.addEventListener('click', (event) => {
 
 for (const button of document.querySelectorAll('.seg__btn')) {
   button.addEventListener('click', () => {
-    current.promptView = button.dataset.view;
+    const target = button.parentElement.dataset.target;
+    current.view[target] = button.dataset.view;
     for (const sibling of button.parentElement.children) {
       sibling.classList.toggle('is-on', sibling === button);
     }
-    if (current.naiDict) renderPrompt(current.naiDict.prompt);
+    if (current.naiDict) renderText(target);
   });
 }
 

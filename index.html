@@ -62,7 +62,7 @@
         <h2>프롬프트</h2>
         <div class="card__tools">
           <span id="tagCount" class="count"></span>
-          <div class="seg" role="group" aria-label="프롬프트 보기 방식">
+          <div class="seg" data-target="prompt" role="group" aria-label="프롬프트 보기 방식">
             <button type="button" class="seg__btn is-on" data-view="tags">태그</button>
             <button type="button" class="seg__btn" data-view="raw">원문</button>
             <button type="button" class="seg__btn" data-view="webui" title="NAI의 {}, [] 강조를 WebUI의 (태그:가중치) 형식으로 변환합니다">WebUI 변환</button>
@@ -93,10 +93,16 @@
         <h2>네거티브 프롬프트</h2>
         <div class="card__tools">
           <span id="negCount" class="count"></span>
+          <div class="seg" data-target="negative" role="group" aria-label="네거티브 프롬프트 보기 방식">
+            <button type="button" class="seg__btn is-on" data-view="tags">태그</button>
+            <button type="button" class="seg__btn" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="webui" title="NAI의 {}, [] 강조를 WebUI의 (태그:가중치) 형식으로 변환합니다">WebUI 변환</button>
+          </div>
           <button type="button" class="btn btn--copy" data-copy="negative">복사</button>
         </div>
       </div>
       <div id="negativeTags" class="tags"></div>
+      <pre id="negativeRaw" class="pre" hidden></pre>
     </article>
 
     <!-- 생성 옵션 -->
@@ -125,13 +131,6 @@
 
   </section>
 </main>
-
-<footer class="foot">
-  <p>
-    원작 <a href="https://github.com/DCP-arca/NAI-Tag-Viewer" target="_blank" rel="noopener">DCP-arca/NAI-Tag-Viewer</a> ·
-    Stealth PNG Info 알고리즘 <a href="https://github.com/neggles/sd-webui-stealth-pnginfo" target="_blank" rel="noopener">neggles/sd-webui-stealth-pnginfo</a>
-  </p>
-</footer>
 
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

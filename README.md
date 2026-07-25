@@ -1,7 +1,6 @@
 # NAI Tag Viewer Web
 
-[DCP-arca/NAI-Tag-Viewer](https://github.com/DCP-arca/NAI-Tag-Viewer) 를 브라우저에서 그대로 쓸 수 있게 옮긴 웹앱입니다.
-이미지를 올리면 프롬프트 · 네거티브 프롬프트 · 생성 옵션 · 기타 정보가 아래에 표시됩니다.
+이미지를 올리면 프롬프트 · 네거티브 프롬프트 · 생성 옵션 · 기타 정보가 아래에 표시되는 웹앱입니다.
 
 빌드 도구나 서버가 필요 없는 정적 사이트라서 GitHub Pages 에 그대로 올릴 수 있고,
 **이미지는 어디에도 전송되지 않습니다.** 파일을 읽고 해석하는 일은 전부 브라우저 안에서만 일어납니다.
@@ -78,7 +77,9 @@ src/prompt-converter.js    NAI → WebUI 가중치 변환
 - Stealth PNG Info 는 픽셀을 그대로 읽어야 해서 손실 압축(JPEG, 손실 WebP)된 이미지에서는 복원되지 않습니다.
 - `DecompressionStream` 을 쓰므로 최신 브라우저(Chrome/Edge 80+, Firefox 113+, Safari 16.4+)가 필요합니다.
 
-## 크레딧
+## 참고
 
-- 원작 — [DCP-arca/NAI-Tag-Viewer](https://github.com/DCP-arca/NAI-Tag-Viewer)
-- Stealth PNG Info 알고리즘 — [neggles/sd-webui-stealth-pnginfo](https://github.com/neggles/sd-webui-stealth-pnginfo)
+메타데이터 해석 방식은 아래 프로젝트들을 참고했습니다.
+
+- [DCP-arca/NAI-Tag-Viewer](https://github.com/DCP-arca/NAI-Tag-Viewer) — NAI · WebUI 메타데이터 해석과 프롬프트 가중치 변환
+- [neggles/sd-webui-stealth-pnginfo](https://github.com/neggles/sd-webui-stealth-pnginfo) — Stealth PNG Info 알고리즘

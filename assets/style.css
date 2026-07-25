@@ -27,6 +27,9 @@
 
 * { box-sizing: border-box; }
 
+/* display 를 지정한 요소는 hidden 속성이 먹지 않아 명시적으로 눌러 준다. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   padding: 0 0 4rem;
@@ -339,17 +342,7 @@ kbd {
 
 .card__tools--raw { margin: .7rem 0; justify-content: flex-end; }
 
-/* ── 푸터 · 토스트 ────────────────────────────────── */
-.foot {
-  max-width: 920px;
-  margin: 2rem auto 0;
-  padding: 0 1rem;
-  color: var(--text-dim);
-  font-size: .78rem;
-}
-
-.foot a { color: var(--text-dim); }
-
+/* ── 토스트 ───────────────────────────────────────── */
 .toast {
   position: fixed;
   left: 50%;
