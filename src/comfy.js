@@ -23,6 +23,13 @@ const NEGATIVE_TITLE = /negative|네거티브|부정/i;
 /** 입력 이름이 텍스트를 담을 법한가. */
 const TEXTY_KEY = /text|string|prompt|caption|description/i;
 
+/** 생성 크기가 들어있는 입력 이름 짝. 앞쪽이 우선한다. */
+const SIZE_KEY_PAIRS = [['image_width', 'image_height'], ['width', 'height']];
+/** 불러온 참고 이미지의 크기는 생성 크기가 아니다. */
+const INPUT_IMAGE_CLASS = /load\s*image|image\s*load/i;
+const LATENT_CLASS = /latent|empty|resolution|size/i;
+const SAMPLER_CLASS = /sampler/i;
+
 /** ComfyUI 노드 그래프인지 확인한다. */
 export function isComfyGraph(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -126,6 +133,81 @@ function findFirstInput(graph, keys, predicate) {
   return undefined;
 }
 
+/** 값을 그대로 내보내는 중계 노드들이 쓰는 출력 이름. */
+const SCALAR_KEYS = ['value', 'output_int', 'output_float', 'output', 'int', 'float', 'number'];
+
+/** 숫자·문자열 입력을 읽는다. 링크면 중계 노드를 따라간다. */
+function resolveScalar(graph, value, seen, ownKey) {
+  if (typeof value === 'number' || typeof value === 'string') return value;
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+
+  const nodeId = String(value[0]);
+  if (seen.has(nodeId)) return undefined;
+  seen.add(nodeId);
+
+  const node = graph[nodeId];
+  if (!node?.inputs) return undefined;
+
+  for (const key of [ownKey, ...SCALAR_KEYS]) {
+    if (!key || !(key in node.inputs)) continue;
+    const resolved = resolveScalar(graph, node.inputs[key], seen, ownKey);
+    if (resolved !== undefined) return resolved;
+  }
+  return undefined;
+}
+
+/**
+ * 옵션을 채운다. 샘플러가 먼저고, 빠진 값은 그래프 전체에서 찾되
+ * 샘플러처럼 생긴 노드를 우선한다. steps 를 별도 노드에 두는 워크플로가 많다.
+ */
+function fillOptions(graph, sampler, out) {
+  const others = Object.values(graph).filter((node) => node !== sampler);
+  const ordered = [
+    ...(sampler ? [sampler] : []),
+    ...others.filter((node) => SAMPLER_CLASS.test(node?.class_type ?? '')),
+    ...others.filter((node) => !SAMPLER_CLASS.test(node?.class_type ?? '')),
+  ];
+
+  for (const node of ordered) {
+    if (!node?.inputs) continue;
+    for (const [inputKey, optionKey] of Object.entries(SAMPLER_OPTIONS)) {
+      if (out[optionKey] !== undefined || !(inputKey in node.inputs)) continue;
+      const value = resolveScalar(graph, node.inputs[inputKey], new Set(), inputKey);
+      if (typeof value === 'number' || (typeof value === 'string' && value)) out[optionKey] = value;
+    }
+  }
+}
+
+/**
+ * 생성 크기를 찾는다. 아무 노드나 집으면 참고용으로 불러온 입력 이미지의
+ * 크기를 가져오게 되므로, 샘플러가 직접 들고 있는 값을 가장 먼저 본다.
+ */
+function readSize(graph, sampler) {
+  const fromNode = (node) => {
+    for (const [widthKey, heightKey] of SIZE_KEY_PAIRS) {
+      const width = toNumber(resolveScalar(graph, node?.inputs?.[widthKey], new Set(), widthKey));
+      const height = toNumber(resolveScalar(graph, node?.inputs?.[heightKey], new Set(), heightKey));
+      if (width !== null && height !== null) {
+        return { width, height, batch: toNumber(node.inputs.batch_size) };
+      }
+    }
+    return null;
+  };
+
+  const nodes = Object.values(graph);
+  const candidates = [
+    ...(sampler ? [sampler] : []),
+    ...nodes.filter((node) => LATENT_CLASS.test(node?.class_type ?? '')),
+    ...nodes.filter((node) => !INPUT_IMAGE_CLASS.test(node?.class_type ?? '')),
+  ];
+
+  for (const node of candidates) {
+    const size = fromNode(node);
+    if (size) return size;
+  }
+  return null;
+}
+
 /**
  * ComfyUI 그래프를 다른 형식과 같은 평평한 사전으로 바꾼다.
  * @returns {object|null} 프롬프트를 찾지 못하면 null
@@ -151,28 +233,16 @@ export function comfyToExifDict(graph) {
 
   const out = { prompt, uc: negative };
 
-  if (sampler) {
-    for (const [inputKey, optionKey] of Object.entries(SAMPLER_OPTIONS)) {
-      const value = sampler.inputs[inputKey];
-      if ((typeof value === 'string' || typeof value === 'number') && out[optionKey] === undefined) {
-        out[optionKey] = value;
-      }
-    }
-  }
+  fillOptions(graph, sampler, out);
 
   const model = findFirstInput(graph, MODEL_KEYS, (v) => typeof v === 'string' && v);
   if (model) out.model = model;
 
-  // 크기와 배치는 빈 latent 노드가 들고 있다. 문자열로 넣는 노드도 있어서 함께 받는다.
-  for (const node of Object.values(graph)) {
-    const width = toNumber(node?.inputs?.width);
-    const height = toNumber(node?.inputs?.height);
-    if (width === null || height === null) continue;
-    out.width = width;
-    out.height = height;
-    const batch = toNumber(node.inputs.batch_size);
-    if (batch !== null) out.n_samples = batch;
-    break;
+  const size = readSize(graph, sampler);
+  if (size) {
+    out.width = size.width;
+    out.height = size.height;
+    if (size.batch !== null) out.n_samples = size.batch;
   }
 
   return out;
