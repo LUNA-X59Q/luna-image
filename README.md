@@ -55,7 +55,10 @@ python3 -m http.server 8080
 
 ```
 index.html                 화면 구조
+site.webmanifest           홈화면 추가용 정보
 assets/style.css           스타일
+assets/icon.svg            앱 아이콘 (파비콘 · 홈화면), PNG 는 여기서 뽑아낸 것
+assets/icon-maskable.svg   안드로이드 마스크 대응 아이콘
 src/app.js                 파일 입력 · 화면 그리기
 src/png.js                 PNG 텍스트 청크 파서
 src/exif.js                JPEG · WebP 의 EXIF / XMP 파서

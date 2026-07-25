@@ -53,11 +53,21 @@ body {
   margin: 0 0 .4rem;
   font-size: 1.6rem;
   letter-spacing: -.02em;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  flex-wrap: wrap;
+}
+
+.topbar__icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: .47rem;
+  flex: none;
 }
 
 .topbar__tag {
   font-size: .7rem;
-  vertical-align: .35em;
   padding: .15rem .45rem;
   border-radius: 999px;
   background: var(--accent-soft);

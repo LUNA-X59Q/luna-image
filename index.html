@@ -7,12 +7,20 @@
 <meta name="description" content="NovelAI · Stable Diffusion WebUI 이미지의 프롬프트와 생성 옵션을 브라우저에서 바로 확인하는 뷰어입니다.">
 <meta name="color-scheme" content="dark light">
 <link rel="stylesheet" href="assets/style.css">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🏷️</text></svg>">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="alternate icon" href="assets/icon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="assets/icon-180.png">
+<link rel="manifest" href="site.webmanifest">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f1116">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f5f6fa">
 </head>
 <body>
 
 <header class="topbar">
-  <h1>NAI Tag Viewer <span class="topbar__tag">Web</span></h1>
+  <h1>
+    <img class="topbar__icon" src="assets/icon.svg" width="32" height="32" alt="">
+    NAI Tag Viewer <span class="topbar__tag">Web</span>
+  </h1>
   <p class="topbar__desc">이미지를 올리면 프롬프트 · 네거티브 프롬프트 · 생성 옵션을 아래에 표시합니다. 모든 처리는 브라우저 안에서만 이루어지며 이미지는 어디에도 업로드되지 않습니다.</p>
 </header>
 

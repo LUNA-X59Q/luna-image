@@ -1,0 +1,17 @@
+{
+  "name": "NAI Tag Viewer Web",
+  "short_name": "NAI Tag",
+  "description": "NovelAI · Stable Diffusion WebUI 이미지의 프롬프트와 생성 옵션을 브라우저에서 바로 확인합니다.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0f1116",
+  "theme_color": "#0f1116",
+  "icons": [
+    { "src": "assets/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
