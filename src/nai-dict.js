@@ -128,11 +128,55 @@ function readCharacterPrompts(exifDict) {
   if (!Array.isArray(positives) || positives.length === 0) return [];
   const negatives = exifDict?.v4_negative_prompt?.caption?.char_captions ?? [];
 
-  return positives.map((entry, i) => ({
-    prompt: String(entry?.char_caption ?? '').trim(),
-    negative_prompt: String(negatives[i]?.char_caption ?? '').trim(),
-    centers: entry?.centers ?? null,
-  }));
+  return positives
+    .map((entry, i) => ({
+      prompt: String(entry?.char_caption ?? '').trim(),
+      negative_prompt: String(negatives[i]?.char_caption ?? '').trim(),
+      centers: entry?.centers ?? null,
+    }))
+    .filter((character) => character.prompt || character.negative_prompt);
+}
+
+/**
+ * 생성 결과를 이해하는 데 도움이 되지 않는 내부 플래그들.
+ * 원본 JSON 에는 그대로 남으므로 필요하면 거기서 확인할 수 있다.
+ */
+const ETC_NOISE_KEYS = new Set([
+  'signed_hash', 'stream', 'request_type', 'legacy_v3_extend',
+  'deliberate_euler_ancestral_bug', 'prefer_brownian', 'cfg_sched_eligibility',
+  'explike_fine_detail', 'minimize_sigma_inf', 'uncond_per_vibe',
+  'wonky_vibe_correlation', 'extra_passthrough_testing',
+  'skip_cfg_above_sigma', 'skip_cfg_below_sigma',
+  'dynamic_thresholding_percentile', 'dynamic_thresholding_mimic_scale',
+  'controlnet_strength', 'reference_information_extracted_multiple',
+  'reference_strength_multiple', 'lora_unet_weights', 'lora_clip_weights',
+]);
+const ETC_NOISE_PREFIX = /^director_reference_/;
+
+function isEmptyValue(value) {
+  if (value === null || value === undefined) return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return false;
+}
+
+/** 기타 정보에서 내부 플래그, 빈 값, 프롬프트와 똑같은 값을 걷어낸다. */
+function pruneEtc(naiDict) {
+  const duplicates = new Set(
+    [naiDict.prompt, naiDict.negative_prompt, ...naiDict.characters.map((c) => c.prompt)]
+      .filter(Boolean),
+  );
+
+  const etc = {};
+  for (const [key, value] of Object.entries(naiDict.etc ?? {})) {
+    if (ETC_NOISE_KEYS.has(key) || ETC_NOISE_PREFIX.test(key)) continue;
+    if (isEmptyValue(value)) continue;
+    if (typeof value === 'string' && duplicates.has(value.trim())) continue;
+    etc[key] = value;
+  }
+  naiDict.etc = etc;
+  return naiDict;
 }
 
 function hasPrompt(naiDict) {
@@ -190,7 +234,7 @@ export function getNaiDict(candidates) {
       for (const [key, value] of Object.entries(candidate.info)) {
         if (key !== 'Comment' && !(key in naiDict.etc)) naiDict.etc[key] = value;
       }
-      return { naiDict, status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
+      return { naiDict: pruneEtc(naiDict), status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
     }
   }
 
@@ -204,7 +248,7 @@ export function getNaiDict(candidates) {
     const naiDict = buildNaiDict(exifDict);
     if (hasPrompt(naiDict)) {
       return {
-        naiDict,
+        naiDict: pruneEtc(naiDict),
         status: RESULT.PARSED,
         source: `${candidate.label} · ComfyUI`,
         raw: candidate.info,
@@ -218,7 +262,7 @@ export function getNaiDict(candidates) {
     if (!exifDict) continue;
     const naiDict = buildNaiDict(exifDict);
     if (hasPrompt(naiDict)) {
-      return { naiDict, status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
+      return { naiDict: pruneEtc(naiDict), status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
     }
   }
 

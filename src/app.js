@@ -31,6 +31,7 @@ const el = {
   cardOption: $('cardOption'),
   etcList: $('etcList'),
   cardEtc: $('cardEtc'),
+  etcCount: $('etcCount'),
   rawText: $('rawText'),
   cardRaw: $('cardRaw'),
   toast: $('toast'),
@@ -200,6 +201,8 @@ function render(result, format) {
 
   const etcEntries = Object.entries(naiDict.etc || {});
   el.cardEtc.hidden = etcEntries.length === 0;
+  el.cardEtc.open = false;
+  el.etcCount.textContent = etcEntries.length ? `${etcEntries.length}개` : '';
   renderKeyValues(el.etcList, etcEntries, (key) => key);
 }
 
@@ -274,11 +277,35 @@ function sectionHead(titleNode, text, message) {
   return head;
 }
 
+/**
+ * 쉼표로 태그를 나눈다. 단 NAI V4 의 `1.5::태그, 태그::` 가중치 묶음은
+ * 통째로 한 덩어리로 둔다. 안쪽 쉼표까지 자르면 가중치가 깨진다.
+ */
 function splitTags(text) {
-  return String(text || '')
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+  const source = String(text || '');
+  const tags = [];
+  let buffer = '';
+  let inGroup = false;
+
+  const flush = () => {
+    const tag = buffer.trim();
+    if (tag) tags.push(tag);
+    buffer = '';
+  };
+
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === ':' && source[i + 1] === ':') {
+      buffer += '::';
+      inGroup = !inGroup;
+      i++;
+    } else if (source[i] === ',' && !inGroup) {
+      flush();
+    } else {
+      buffer += source[i];
+    }
+  }
+  flush();
+  return tags;
 }
 
 function renderTags(container, text, emptyLabel) {

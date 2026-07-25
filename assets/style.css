@@ -326,12 +326,16 @@ kbd {
 
 .kv dd:hover { color: var(--accent); }
 
-/* ── 원본 데이터 ──────────────────────────────────── */
-.card--raw summary {
+/* ── 접히는 카드 ──────────────────────────────────── */
+.card--raw summary,
+.card--fold summary {
   cursor: pointer;
   font-size: .95rem;
   font-weight: 600;
 }
+
+.card--fold[open] summary { margin-bottom: .75rem; }
+.card--fold summary .count { font-weight: 400; }
 
 .card__tools--raw { margin: .7rem 0; justify-content: flex-end; }
 
