@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAI Tag Viewer Web</title>
+<meta name="description" content="NovelAI · Stable Diffusion WebUI 이미지의 프롬프트와 생성 옵션을 브라우저에서 바로 확인하는 뷰어입니다.">
+<meta name="color-scheme" content="dark light">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🏷️</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>NAI Tag Viewer <span class="topbar__tag">Web</span></h1>
+  <p class="topbar__desc">이미지를 올리면 프롬프트 · 네거티브 프롬프트 · 생성 옵션을 아래에 표시합니다. 모든 처리는 브라우저 안에서만 이루어지며 이미지는 어디에도 업로드되지 않습니다.</p>
+</header>
+
+<main class="wrap">
+
+  <!-- ── 이미지 영역 ────────────────────────────────── -->
+  <section id="dropzone" class="dropzone" tabindex="0" role="button"
+           aria-label="이미지 열기. 클릭하거나 파일을 끌어다 놓으세요.">
+    <div id="placeholder" class="placeholder">
+      <div class="placeholder__icon" aria-hidden="true">🖼️</div>
+      <p class="placeholder__title">이미지를 끌어다 놓거나 클릭해서 선택하세요</p>
+      <p class="placeholder__hint">
+        PNG · WebP · JPEG 지원 · <kbd>Ctrl</kbd>+<kbd>V</kbd> 로 붙여넣기 ·
+        웹페이지의 이미지를 그대로 끌어다 놓아도 됩니다
+      </p>
+    </div>
+
+    <figure id="preview" class="preview" hidden>
+      <img id="previewImg" alt="불러온 이미지 미리보기">
+      <figcaption id="previewInfo" class="preview__info"></figcaption>
+    </figure>
+
+    <input id="fileInput" type="file" accept="image/png,image/webp,image/jpeg,image/*" hidden>
+  </section>
+
+  <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+
+  <!-- ── 메타데이터 영역 ────────────────────────────── -->
+  <section id="result" class="result" hidden>
+
+    <div class="result__head">
+      <span id="sourceBadge" class="badge"></span>
+      <button id="clearBtn" class="btn btn--ghost" type="button">지우기</button>
+    </div>
+
+    <!-- 프롬프트 -->
+    <article class="card" id="cardPrompt">
+      <div class="card__head">
+        <h2>프롬프트</h2>
+        <div class="card__tools">
+          <span id="tagCount" class="count"></span>
+          <div class="seg" role="group" aria-label="프롬프트 보기 방식">
+            <button type="button" class="seg__btn is-on" data-view="tags">태그</button>
+            <button type="button" class="seg__btn" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="webui" title="NAI의 {}, [] 강조를 WebUI의 (태그:가중치) 형식으로 변환합니다">WebUI 변환</button>
+          </div>
+          <button type="button" class="btn btn--copy" data-copy="prompt">복사</button>
+        </div>
+      </div>
+      <div id="promptTags" class="tags"></div>
+      <pre id="promptRaw" class="pre" hidden></pre>
+    </article>
+
+    <!-- 캐릭터 프롬프트 (NAI v4+) -->
+    <article class="card" id="cardChars" hidden>
+      <div class="card__head">
+        <h2>캐릭터 프롬프트</h2>
+        <span class="count" id="charCount"></span>
+      </div>
+      <div id="charList" class="charlist"></div>
+    </article>
+
+    <!-- 네거티브 프롬프트 -->
+    <article class="card" id="cardNegative">
+      <div class="card__head">
+        <h2>네거티브 프롬프트</h2>
+        <div class="card__tools">
+          <span id="negCount" class="count"></span>
+          <button type="button" class="btn btn--copy" data-copy="negative">복사</button>
+        </div>
+      </div>
+      <div id="negativeTags" class="tags"></div>
+    </article>
+
+    <!-- 생성 옵션 -->
+    <article class="card" id="cardOption">
+      <div class="card__head">
+        <h2>생성 옵션</h2>
+        <button type="button" class="btn btn--copy" data-copy="option">복사</button>
+      </div>
+      <dl id="optionList" class="kv"></dl>
+    </article>
+
+    <!-- 기타 정보 -->
+    <article class="card" id="cardEtc">
+      <div class="card__head"><h2>기타 정보</h2></div>
+      <dl id="etcList" class="kv"></dl>
+    </article>
+
+    <!-- 원본 데이터 -->
+    <details class="card card--raw" id="cardRaw">
+      <summary>원본 메타데이터 (JSON)</summary>
+      <div class="card__tools card__tools--raw">
+        <button type="button" class="btn btn--copy" data-copy="raw">복사</button>
+      </div>
+      <pre id="rawText" class="pre"></pre>
+    </details>
+
+  </section>
+</main>
+
+<footer class="foot">
+  <p>
+    원작 <a href="https://github.com/DCP-arca/NAI-Tag-Viewer" target="_blank" rel="noopener">DCP-arca/NAI-Tag-Viewer</a> ·
+    Stealth PNG Info 알고리즘 <a href="https://github.com/neggles/sd-webui-stealth-pnginfo" target="_blank" rel="noopener">neggles/sd-webui-stealth-pnginfo</a>
+  </p>
+</footer>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script type="module" src="src/app.js"></script>
+</body>
+</html>
