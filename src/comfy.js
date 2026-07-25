@@ -20,6 +20,8 @@ const SAMPLER_OPTIONS = {
 
 const MODEL_KEYS = ['ckpt_name', 'unet_name', 'model_name'];
 const NEGATIVE_TITLE = /negative|네거티브|부정/i;
+/** 입력 이름이 텍스트를 담을 법한가. */
+const TEXTY_KEY = /text|string|prompt|caption|description/i;
 
 /** ComfyUI 노드 그래프인지 확인한다. */
 export function isComfyGraph(value) {
@@ -53,13 +55,35 @@ function resolveText(graph, value, seen) {
   }
   if (parts.length > 0) return parts.join(', ');
 
-  // 알려진 입력 이름이 없으면 텍스트 계열 노드에 한해 문자열 입력을 훑는다.
-  if (/text|string|prompt/i.test(node.class_type)) {
-    for (const input of Object.values(node.inputs)) {
-      if (typeof input === 'string' && input.trim()) return input;
-    }
+  // 알려진 입력 이름이 없으면 이름이 텍스트처럼 생긴 입력만 훑는다.
+  // class_type 만 보고 아무 문자열이나 집으면 콤보 값(해상도, 파일명 등)이 딸려온다.
+  for (const [key, input] of Object.entries(node.inputs)) {
+    if (!TEXTY_KEY.test(key)) continue;
+    if (typeof input === 'string' && looksLikePrompt(input)) return input;
   }
   return '';
+}
+
+/**
+ * 프롬프트로 보기 어려운 값을 걸러낸다.
+ * 노드 입력에는 해상도나 체크포인트 이름 같은 콤보 값이 문자열로 들어있어서,
+ * 이걸 거르지 않으면 프롬프트 자리에 "1280" 같은 값이 올라온다.
+ */
+function looksLikePrompt(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return false;                       // 1280, 4.5
+  if (/^\d+\s*[x×*]\s*\d+/i.test(trimmed)) return false;                   // 1280x720
+  if (/\.(safetensors|ckpt|pt|pth|bin|gguf|onnx|yaml)$/i.test(trimmed)) return false;
+  if (/^(true|false|none|enable|disable|randomize|fixed|increment|decrement)$/i.test(trimmed)) {
+    return false;
+  }
+  return true;
+}
+
+/** 프롬프트로 쓸 수 있는 값만 남긴다. 아니면 빈 문자열. */
+function cleanPrompt(text) {
+  return looksLikePrompt(text) ? text.trim() : '';
 }
 
 /** positive · negative 조건 입력을 모두 가진 노드가 샘플러다. */
@@ -76,12 +100,19 @@ function collectEncoderTexts(graph) {
 
   for (const [nodeId, node] of Object.entries(graph)) {
     if (!/CLIPTextEncode|TextEncode/i.test(node?.class_type ?? '')) continue;
-    const text = resolveText(graph, [nodeId, 0], new Set()).trim();
+    const text = cleanPrompt(resolveText(graph, [nodeId, 0], new Set()));
     if (!text) continue;
     (NEGATIVE_TITLE.test(node._meta?.title ?? '') ? negative : positive).push(text);
   }
 
   return { prompt: positive.join(', '), negative: negative.join(', ') };
+}
+
+/** 숫자 또는 숫자 문자열이면 숫자로, 아니면 null. */
+function toNumber(value) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string' && /^\d+(\.\d+)?$/.test(value.trim())) return Number(value);
+  return null;
 }
 
 function findFirstInput(graph, keys, predicate) {
@@ -105,8 +136,8 @@ export function comfyToExifDict(graph) {
   let sampler = null;
 
   for (const node of findSamplers(graph)) {
-    const positiveText = resolveText(graph, node.inputs.positive, new Set()).trim();
-    const negativeText = resolveText(graph, node.inputs.negative, new Set()).trim();
+    const positiveText = cleanPrompt(resolveText(graph, node.inputs.positive, new Set()));
+    const negativeText = cleanPrompt(resolveText(graph, node.inputs.negative, new Set()));
     if (positiveText || negativeText) {
       prompt = positiveText;
       negative = negativeText;
@@ -132,13 +163,15 @@ export function comfyToExifDict(graph) {
   const model = findFirstInput(graph, MODEL_KEYS, (v) => typeof v === 'string' && v);
   if (model) out.model = model;
 
-  // 크기와 배치는 빈 latent 노드가 들고 있다.
+  // 크기와 배치는 빈 latent 노드가 들고 있다. 문자열로 넣는 노드도 있어서 함께 받는다.
   for (const node of Object.values(graph)) {
-    const inputs = node?.inputs;
-    if (typeof inputs?.width !== 'number' || typeof inputs?.height !== 'number') continue;
-    out.width = inputs.width;
-    out.height = inputs.height;
-    if (typeof inputs.batch_size === 'number') out.n_samples = inputs.batch_size;
+    const width = toNumber(node?.inputs?.width);
+    const height = toNumber(node?.inputs?.height);
+    if (width === null || height === null) continue;
+    out.width = width;
+    out.height = height;
+    const batch = toNumber(node.inputs.batch_size);
+    if (batch !== null) out.n_samples = batch;
     break;
   }
 
