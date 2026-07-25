@@ -207,20 +207,39 @@ function render(result, format) {
 
 /** 프롬프트와 네거티브 프롬프트는 보기 방식이 같아서 한 곳에서 그린다. */
 const TEXT_PANELS = {
-  prompt: { source: (d) => d?.prompt, tags: 'promptTags', raw: 'promptRaw', count: 'tagCount' },
-  negative: { source: (d) => d?.negative_prompt, tags: 'negativeTags', raw: 'negativeRaw', count: 'negCount' },
+  prompt: { source: (d) => d?.prompt, tags: 'promptTags', raw: 'promptRaw', count: 'tagCount', copy: 'prompt' },
+  negative: { source: (d) => d?.negative_prompt, tags: 'negativeTags', raw: 'negativeRaw', count: 'negCount', copy: 'negative' },
 };
 
-/** 현재 보기 방식을 반영한 텍스트. 복사할 때도 이 값을 쓴다. */
+/** 빈 태그와 줄바꿈을 걷어내 그림 생성기에 그대로 붙여넣을 수 있는 형태로 만든다. */
+function tidyPrompt(text) {
+  return splitTags(text).join(', ');
+}
+
+/**
+ * 현재 보기 방식을 반영한 텍스트. 복사할 때도 이 값을 쓴다.
+ * 태그 보기는 화면에 보이는 칩 그대로, 원문 보기는 손대지 않은 원본을 준다.
+ */
 function textForView(target) {
   const text = TEXT_PANELS[target].source(current.naiDict) || '';
-  return current.view[target] === 'webui' ? convertToWebui(text) : text;
+  if (current.view[target] === 'webui') return convertToWebui(text);
+  if (current.view[target] === 'raw') return text;
+  return tidyPrompt(text);
 }
+
+const COPY_HINTS = {
+  tags: '줄바꿈과 빈 태그를 정리해 바로 쓸 수 있는 형태로 복사합니다',
+  raw: '이미지에 저장된 원문 그대로 복사합니다',
+  webui: 'WebUI 형식으로 변환해 복사합니다',
+};
 
 function renderText(target) {
   const panel = TEXT_PANELS[target];
   const text = panel.source(current.naiDict) || '';
   el[panel.count].textContent = countLabel(text);
+
+  const copyButton = document.querySelector(`[data-copy="${panel.copy}"]`);
+  if (copyButton) copyButton.title = COPY_HINTS[current.view[target]];
 
   if (current.view[target] === 'tags') {
     el[panel.tags].hidden = false;
@@ -248,7 +267,7 @@ function renderCharacters(characters) {
       const title = document.createElement('h3');
       title.textContent = `캐릭터 ${i + 1}`;
       box.append(
-        sectionHead(title, character.prompt, `캐릭터 ${i + 1} 프롬프트를 복사했습니다`),
+        sectionHead(title, tidyPrompt(character.prompt), `캐릭터 ${i + 1} 프롬프트를 복사했습니다`),
       );
 
       const positive = document.createElement('div');
@@ -261,7 +280,7 @@ function renderCharacters(characters) {
         label.className = 'charlist__label';
         label.textContent = '네거티브';
         box.append(
-          sectionHead(label, character.negative_prompt, `캐릭터 ${i + 1} 네거티브를 복사했습니다`),
+          sectionHead(label, tidyPrompt(character.negative_prompt), `캐릭터 ${i + 1} 네거티브를 복사했습니다`),
         );
 
         const negative = document.createElement('div');
@@ -300,7 +319,8 @@ function splitTags(text) {
   let inGroup = false;
 
   const flush = () => {
-    const tag = buffer.trim();
+    // 줄바꿈과 이어진 공백은 한 칸으로 눌러 둔다. 그대로 두면 붙여넣었을 때 지저분하다.
+    const tag = buffer.replace(/\s+/g, ' ').trim();
     if (tag) tags.push(tag);
     buffer = '';
   };
@@ -390,7 +410,7 @@ const COPY_SOURCES = {
   negative: () => textForView('negative'),
   chars: () =>
     (current.naiDict?.characters || [])
-      .map((character) => character.prompt)
+      .map((character) => tidyPrompt(character.prompt))
       .filter(Boolean)
       .join('\n'),
   option: () =>
