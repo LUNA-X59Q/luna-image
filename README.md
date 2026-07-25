@@ -15,6 +15,7 @@
 - **형식 자동 인식**
   - NovelAI 방식 — `Comment` 키에 들어있는 JSON
   - Stable Diffusion WebUI 방식 — `parameters` 문자열
+  - ComfyUI 방식 — `prompt` 에 담긴 노드 그래프를 따라가 실제 프롬프트만 추출
   - NAI v4 이후의 캐릭터별 프롬프트(`v4_prompt`)는 별도 카드로 표시
 - **보기 방식**
   - 태그 단위로 쪼갠 칩 목록 (칩을 누르면 그 태그만 복사)
@@ -66,6 +67,7 @@ src/png.js                 PNG 텍스트 청크 파서
 src/exif.js                JPEG · WebP 의 EXIF / XMP 파서
 src/stealth-pnginfo.js     Stealth PNG Info 디코더
 src/nai-dict.js            메타데이터 → 프롬프트 / 옵션 / 기타 정리
+src/comfy.js               ComfyUI 노드 그래프에서 프롬프트 추출
 src/prompt-converter.js    NAI → WebUI 가중치 변환
 ```
 

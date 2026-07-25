@@ -1,6 +1,8 @@
 // 이미지에서 뽑아낸 원시 메타데이터를 프롬프트 / 네거티브 / 옵션 / 기타로 정리한다.
 // 원본 NaiDictGetter.py 의 이식본.
 
+import { comfyToExifDict, isComfyGraph } from './comfy.js';
+
 export const TARGETKEY_NAIDICT_OPTION = [
   'steps', 'height', 'width',
   'scale', 'seed', 'sampler', 'n_samples', 'sm', 'sm_dyn',
@@ -152,6 +154,9 @@ function toExifDict(info) {
     if (parsed && typeof parsed === 'object') return parsed;
     if (/^Negative prompt:/m.test(info.UserComment)) return parseWebuiExif(info.UserComment);
   }
+  // ComfyUI 의 prompt 는 노드 그래프라 프롬프트 문자열로 쓰면 안 된다.
+  // 위쪽 경로에서 못 읽어냈다면 원본 JSON 만 보여주는 편이 낫다.
+  if (isComfyGraph(tryParseJson(info.prompt))) return null;
   return info;
 }
 
@@ -189,7 +194,25 @@ export function getNaiDict(candidates) {
     }
   }
 
-  // 2순위: WebUI parameters 또는 평평한 사전
+  // 2순위: ComfyUI — prompt 키에 노드 그래프가 통째로 들어있다
+  for (const candidate of usable) {
+    const graph = tryParseJson(candidate.info.prompt);
+    if (!isComfyGraph(graph)) continue;
+    const exifDict = comfyToExifDict(graph);
+    if (!exifDict) continue;
+
+    const naiDict = buildNaiDict(exifDict);
+    if (hasPrompt(naiDict)) {
+      return {
+        naiDict,
+        status: RESULT.PARSED,
+        source: `${candidate.label} · ComfyUI`,
+        raw: candidate.info,
+      };
+    }
+  }
+
+  // 3순위: WebUI parameters 또는 평평한 사전
   for (const candidate of usable) {
     const exifDict = toExifDict(candidate.info);
     if (!exifDict) continue;
