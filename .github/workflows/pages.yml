@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main, master, 'claude/**']
+    # 배포는 기본 브랜치에서만 한다. github-pages 환경이 다른 브랜치의
+    # 배포를 막기 때문에, 작업 브랜치에서 돌리면 실패로만 남는다.
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -21,9 +23,13 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      # 빌드 단계가 없는 정적 사이트라 저장소를 그대로 올린다.
+      - uses: actions/checkout@v5
+      # enablement 를 켜두면 저장소 설정에서 Pages 를 미리 켜두지 않아도
+      # 이 단계가 Actions 소스로 알아서 활성화한다.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      # 빌드 단계가 없는 정적 사이트라 저장소를 그대로 올린다.
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .

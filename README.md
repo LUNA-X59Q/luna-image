@@ -35,8 +35,10 @@
 
 **2. GitHub Actions 로 배포**
 
-- Source 를 `GitHub Actions` 로 바꾸면 `.github/workflows/pages.yml` 이 푸시할 때마다 배포합니다.
+- `.github/workflows/pages.yml` 이 `main` 에 푸시될 때마다 배포합니다.
+- 설정에서 Pages 를 미리 켜두지 않아도 워크플로가 알아서 활성화합니다 (`configure-pages` 의 `enablement`).
 - Actions 탭에서 `Deploy to GitHub Pages` 를 수동으로 돌릴 수도 있습니다.
+- 배포는 기본 브랜치에서만 됩니다. `github-pages` 환경이 다른 브랜치의 배포를 막기 때문에, 작업 브랜치에서 돌리면 실패로만 남습니다.
 
 주소는 `https://<사용자명>.github.io/<저장소명>/` 형태가 됩니다.
 경로를 모두 상대 경로로 적어 두어서 하위 경로에 올려도 그대로 동작합니다.
