@@ -232,7 +232,9 @@ function renderCharacters(characters) {
 
       const title = document.createElement('h3');
       title.textContent = `캐릭터 ${i + 1}`;
-      box.append(title);
+      box.append(
+        sectionHead(title, character.prompt, `캐릭터 ${i + 1} 프롬프트를 복사했습니다`),
+      );
 
       const positive = document.createElement('div');
       positive.className = 'tags';
@@ -243,14 +245,33 @@ function renderCharacters(characters) {
         const label = document.createElement('p');
         label.className = 'charlist__label';
         label.textContent = '네거티브';
+        box.append(
+          sectionHead(label, character.negative_prompt, `캐릭터 ${i + 1} 네거티브를 복사했습니다`),
+        );
+
         const negative = document.createElement('div');
         negative.className = 'tags';
         renderTags(negative, character.negative_prompt, '');
-        box.append(label, negative);
+        box.append(negative);
       }
       return box;
     }),
   );
+}
+
+/** 제목과 복사 버튼을 한 줄로 묶는다. */
+function sectionHead(titleNode, text, message) {
+  const head = document.createElement('div');
+  head.className = 'charlist__head';
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'btn btn--copy';
+  button.textContent = '복사';
+  button.addEventListener('click', () => copy(text, message));
+
+  head.append(titleNode, button);
+  return head;
 }
 
 function splitTags(text) {
@@ -331,6 +352,11 @@ const COPY_SOURCES = {
     return current.promptView === 'webui' ? convertToWebui(prompt) : prompt;
   },
   negative: () => current.naiDict?.negative_prompt || '',
+  chars: () =>
+    (current.naiDict?.characters || [])
+      .map((character) => character.prompt)
+      .filter(Boolean)
+      .join('\n'),
   option: () =>
     sortOptions(current.naiDict?.option)
       .map(([key, value]) => `${key}: ${formatValue(value)}`)

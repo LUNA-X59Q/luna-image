@@ -70,7 +70,11 @@
     <article class="card" id="cardChars" hidden>
       <div class="card__head">
         <h2>캐릭터 프롬프트</h2>
-        <span class="count" id="charCount"></span>
+        <div class="card__tools">
+          <span class="count" id="charCount"></span>
+          <button type="button" class="btn btn--copy" data-copy="chars"
+                  title="모든 캐릭터의 프롬프트를 한 줄씩 복사합니다">전체 복사</button>
+        </div>
       </div>
       <div id="charList" class="charlist"></div>
     </article>
