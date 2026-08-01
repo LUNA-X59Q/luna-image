@@ -2,7 +2,6 @@ import { isPng, readPngTextChunks } from './png.js';
 import { isJpeg, isWebp, readJpegMetadata, readWebpMetadata } from './exif.js';
 import { getImageData, readStealthInfo } from './stealth-pnginfo.js';
 import { getNaiDict, tryParseJson, RESULT } from './nai-dict.js';
-import { convertToWebui } from './prompt-converter.js';
 import { splitTags } from './tags.js';
 
 const $ = (id) => document.getElementById(id);
@@ -59,7 +58,10 @@ const OPTION_LABELS = {
 
 const OPTION_ORDER = Object.keys(OPTION_LABELS);
 
-let current = { objectUrl: null, naiDict: null, raw: null, view: { prompt: 'tags', negative: 'tags' } };
+// 원문이 이미지에 저장된 그대로라 먼저 보여주고, 태그 보기는 필요할 때 고른다.
+const DEFAULT_VIEW = { prompt: 'raw', negative: 'raw', chars: 'raw' };
+
+let current = { objectUrl: null, naiDict: null, raw: null, view: { ...DEFAULT_VIEW } };
 
 // ── 메타데이터 추출 ────────────────────────────────────────
 
@@ -229,16 +231,17 @@ function tidyPrompt(text) {
  * 태그 보기는 화면에 보이는 칩 그대로, 원문 보기는 손대지 않은 원본을 준다.
  */
 function textForView(target) {
-  const text = TEXT_PANELS[target].source(current.naiDict) || '';
-  if (current.view[target] === 'webui') return convertToWebui(text);
-  if (current.view[target] === 'raw') return text;
-  return tidyPrompt(text);
+  return forView(TEXT_PANELS[target].source(current.naiDict), current.view[target]);
+}
+
+/** 보기 방식 하나에 텍스트 하나. 카드마다 같은 규칙을 쓴다. */
+function forView(text, view) {
+  return view === 'raw' ? (text || '') : tidyPrompt(text);
 }
 
 const COPY_HINTS = {
   tags: '줄바꿈과 빈 태그를 정리해 바로 쓸 수 있는 형태로 복사합니다',
   raw: '이미지에 저장된 원문 그대로 복사합니다',
-  webui: 'WebUI 형식으로 변환해 복사합니다',
 };
 
 function renderText(target) {
@@ -267,6 +270,10 @@ function renderCharacters(characters) {
   }
   el.cardChars.hidden = false;
   el.charCount.textContent = `${characters.length}명`;
+
+  const copyButton = document.querySelector('[data-copy="chars"]');
+  if (copyButton) copyButton.title = CHAR_COPY_HINTS[current.view.chars];
+
   el.charList.replaceChildren(
     ...characters.map((character, i) => {
       const box = document.createElement('div');
@@ -275,30 +282,46 @@ function renderCharacters(characters) {
       const title = document.createElement('h3');
       title.textContent = `캐릭터 ${i + 1}`;
       box.append(
-        sectionHead(title, tidyPrompt(character.prompt), `캐릭터 ${i + 1} 프롬프트를 복사했습니다`),
+        sectionHead(title, charText(character.prompt), `캐릭터 ${i + 1} 프롬프트를 복사했습니다`),
+        charBody(character.prompt, '(비어 있음)'),
       );
-
-      const positive = document.createElement('div');
-      positive.className = 'tags';
-      renderTags(positive, character.prompt, '(비어 있음)');
-      box.append(positive);
 
       if (character.negative_prompt) {
         const label = document.createElement('p');
         label.className = 'charlist__label';
         label.textContent = '네거티브';
         box.append(
-          sectionHead(label, tidyPrompt(character.negative_prompt), `캐릭터 ${i + 1} 네거티브를 복사했습니다`),
+          sectionHead(label, charText(character.negative_prompt), `캐릭터 ${i + 1} 네거티브를 복사했습니다`),
+          charBody(character.negative_prompt, ''),
         );
-
-        const negative = document.createElement('div');
-        negative.className = 'tags';
-        renderTags(negative, character.negative_prompt, '');
-        box.append(negative);
       }
       return box;
     }),
   );
+}
+
+const CHAR_COPY_HINTS = {
+  tags: '캐릭터별로 정리한 프롬프트를 이름표와 함께 복사합니다',
+  raw: '캐릭터별로 원문 프롬프트를 이름표와 함께 복사합니다',
+};
+
+/** 캐릭터 프롬프트도 프롬프트 카드와 같은 보기 방식을 따른다. */
+function charText(text) {
+  return forView(text, current.view.chars);
+}
+
+/** 보기 방식에 맞는 본문. 태그 보기는 칩, 원문 보기는 저장된 그대로. */
+function charBody(text, emptyLabel) {
+  if (current.view.chars === 'tags') {
+    const tags = document.createElement('div');
+    tags.className = 'tags';
+    renderTags(tags, text, emptyLabel);
+    return tags;
+  }
+  const pre = document.createElement('pre');
+  pre.className = 'pre';
+  pre.textContent = (text || '').trim() || emptyLabel;
+  return pre;
 }
 
 /** 제목과 복사 버튼을 한 줄로 묶는다. */
@@ -384,11 +407,16 @@ function countLabel(text) {
 const COPY_SOURCES = {
   prompt: () => textForView('prompt'),
   negative: () => textForView('negative'),
+  // 태그만 이어 붙이면 어디까지가 누구 것인지 알 수 없어서 캐릭터마다 이름표를 붙인다.
   chars: () =>
     (current.naiDict?.characters || [])
-      .map((character) => tidyPrompt(character.prompt))
-      .filter(Boolean)
-      .join('\n'),
+      .map((character, i) => {
+        const lines = [`캐릭터 ${i + 1}`, `프롬프트: ${charText(character.prompt)}`];
+        const negative = charText(character.negative_prompt);
+        if (negative) lines.push(`네거티브 프롬프트: ${negative}`);
+        return lines.join('\n');
+      })
+      .join('\n\n'),
   option: () =>
     sortOptions(current.naiDict?.option)
       .map(([key, value]) => `${key}: ${formatValue(value)}`)
@@ -508,7 +536,9 @@ for (const button of document.querySelectorAll('.seg__btn')) {
     for (const sibling of button.parentElement.children) {
       sibling.classList.toggle('is-on', sibling === button);
     }
-    if (current.naiDict) renderText(target);
+    if (!current.naiDict) return;
+    if (target === 'chars') renderCharacters(current.naiDict.characters);
+    else renderText(target);
   });
 }
 

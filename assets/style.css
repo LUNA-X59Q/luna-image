@@ -289,7 +289,7 @@ kbd {
   margin-bottom: .5rem;
 }
 
-.charlist__head + .tags + .charlist__head { margin-top: .7rem; }
+.charlist__head + * + .charlist__head { margin-top: .7rem; }
 .charlist__head .btn { margin-left: auto; }
 
 .charlist__item h3 {

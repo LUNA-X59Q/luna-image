@@ -16,12 +16,11 @@
   - Stable Diffusion WebUI 방식 — `parameters` 문자열
   - ComfyUI 방식 — `prompt` 에 담긴 노드 그래프를 따라가 실제 프롬프트만 추출
   - NAI v4 이후의 캐릭터별 프롬프트(`v4_prompt`)는 별도 카드로 표시
-- **보기 방식**
-  - 태그 단위로 쪼갠 칩 목록 (칩을 누르면 그 태그만 복사). NAI V4 의 `1.5::태그, 태그::` 가중치 묶음은 쪼개지 않고 한 덩어리로 둡니다
+- **보기 방식** — 프롬프트 · 네거티브 프롬프트 · 캐릭터 프롬프트 모두 **원문 ｜ 태그** 두 가지로 보며, 이미지에 저장된 원문을 먼저 보여줍니다
+  - 태그 보기는 태그 단위로 쪼갠 칩 목록 (칩을 누르면 그 태그만 복사). NAI V4 의 `1.5::태그, 태그::` 가중치 묶음은 쪼개지 않고 한 덩어리로 둡니다
   - 복사 결과는 보기 방식을 따라갑니다. **태그** 보기는 줄바꿈 · 빈 태그 · 중복 쉼표를 정리해 그림 생성기에 바로 붙여넣을 수 있는 형태로, **원문** 보기는 이미지에 저장된 그대로 복사합니다
+  - 캐릭터 프롬프트 **전체 복사** 는 캐릭터마다 `캐릭터 N` · `프롬프트:` · `네거티브 프롬프트:` 로 나눠 붙여 줍니다
   - 기타 정보에서는 내부 플래그와 빈 값, 프롬프트와 중복된 값을 걷어내고 접어 둡니다 (원본 JSON 에는 그대로 남습니다)
-  - 원문 보기
-  - **WebUI 변환** — NAI 의 `{}` · `[]` 중첩 강조를 `(태그:가중치)` 형식으로 변환
   - 원본 메타데이터 JSON 그대로 보기
 - **불러오는 방법** — 클릭해서 선택 · 드래그 앤 드롭 · 웹페이지의 이미지를 그대로 끌어다 놓기 · <kbd>Ctrl</kbd>+<kbd>V</kbd> 붙여넣기
 - 다크/라이트 테마 자동 전환, 모바일 대응
@@ -76,7 +75,6 @@ src/exif.js                JPEG · WebP 의 EXIF / XMP 파서
 src/stealth-pnginfo.js     Stealth PNG Info 디코더
 src/nai-dict.js            메타데이터 → 프롬프트 / 옵션 / 기타 정리
 src/comfy.js               ComfyUI 노드 그래프에서 프롬프트 추출
-src/prompt-converter.js    NAI → WebUI 가중치 변환
 test/prompt-split.test.mjs 프롬프트 / 네거티브 분리 회귀 테스트
 test/split-tags.test.mjs   태그 쪼개기 회귀 테스트
 test/metadata-read.test.mjs 청크 · EXIF 읽기 회귀 테스트
@@ -93,5 +91,5 @@ test/metadata-read.test.mjs 청크 · EXIF 읽기 회귀 테스트
 
 메타데이터 해석 방식은 아래 프로젝트들을 참고했습니다.
 
-- [DCP-arca/NAI-Tag-Viewer](https://github.com/DCP-arca/NAI-Tag-Viewer) — NAI · WebUI 메타데이터 해석과 프롬프트 가중치 변환
+- [DCP-arca/NAI-Tag-Viewer](https://github.com/DCP-arca/NAI-Tag-Viewer) — NAI · WebUI 메타데이터 해석
 - [neggles/sd-webui-stealth-pnginfo](https://github.com/neggles/sd-webui-stealth-pnginfo) — Stealth PNG Info 알고리즘
