@@ -73,23 +73,6 @@
       <pre id="promptRaw" class="pre"></pre>
     </article>
 
-    <!-- 캐릭터 프롬프트 (NAI v4+) -->
-    <article class="card" id="cardChars" hidden>
-      <div class="card__head">
-        <h2>캐릭터 프롬프트</h2>
-        <div class="card__tools">
-          <span class="count" id="charCount"></span>
-          <div class="seg" data-target="chars" role="group" aria-label="캐릭터 프롬프트 보기 방식">
-            <button type="button" class="seg__btn is-on" data-view="raw">원문</button>
-            <button type="button" class="seg__btn" data-view="tags">태그</button>
-          </div>
-          <button type="button" class="btn btn--copy" data-copy="chars"
-                  title="캐릭터별로 프롬프트와 네거티브 프롬프트를 나눠 복사합니다">전체 복사</button>
-        </div>
-      </div>
-      <div id="charList" class="charlist"></div>
-    </article>
-
     <!-- 네거티브 프롬프트 -->
     <article class="card" id="cardNegative">
       <div class="card__head">
@@ -105,6 +88,23 @@
       </div>
       <div id="negativeTags" class="tags" hidden></div>
       <pre id="negativeRaw" class="pre"></pre>
+    </article>
+
+    <!-- 캐릭터 프롬프트 (NAI v4+) -->
+    <article class="card" id="cardChars" hidden>
+      <div class="card__head">
+        <h2>캐릭터 프롬프트</h2>
+        <div class="card__tools">
+          <span class="count" id="charCount"></span>
+          <div class="seg" data-target="chars" role="group" aria-label="캐릭터 프롬프트 보기 방식">
+            <button type="button" class="seg__btn is-on" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="tags">태그</button>
+          </div>
+          <button type="button" class="btn btn--copy" data-copy="chars"
+                  title="캐릭터별로 프롬프트와 네거티브 프롬프트를 나눠 복사합니다">전체 복사</button>
+        </div>
+      </div>
+      <div id="charList" class="charlist"></div>
     </article>
 
     <!-- 생성 옵션 -->
