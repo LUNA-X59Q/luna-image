@@ -63,15 +63,14 @@
         <div class="card__tools">
           <span id="tagCount" class="count"></span>
           <div class="seg" data-target="prompt" role="group" aria-label="프롬프트 보기 방식">
-            <button type="button" class="seg__btn is-on" data-view="tags">태그</button>
-            <button type="button" class="seg__btn" data-view="raw">원문</button>
-            <button type="button" class="seg__btn" data-view="webui" title="NAI의 {}, [] 강조를 WebUI의 (태그:가중치) 형식으로 변환합니다">WebUI 변환</button>
+            <button type="button" class="seg__btn is-on" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="tags">태그</button>
           </div>
           <button type="button" class="btn btn--copy" data-copy="prompt">복사</button>
         </div>
       </div>
-      <div id="promptTags" class="tags"></div>
-      <pre id="promptRaw" class="pre" hidden></pre>
+      <div id="promptTags" class="tags" hidden></div>
+      <pre id="promptRaw" class="pre"></pre>
     </article>
 
     <!-- 캐릭터 프롬프트 (NAI v4+) -->
@@ -80,8 +79,12 @@
         <h2>캐릭터 프롬프트</h2>
         <div class="card__tools">
           <span class="count" id="charCount"></span>
+          <div class="seg" data-target="chars" role="group" aria-label="캐릭터 프롬프트 보기 방식">
+            <button type="button" class="seg__btn is-on" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="tags">태그</button>
+          </div>
           <button type="button" class="btn btn--copy" data-copy="chars"
-                  title="모든 캐릭터의 프롬프트를 한 줄씩 복사합니다">전체 복사</button>
+                  title="캐릭터별로 프롬프트와 네거티브 프롬프트를 나눠 복사합니다">전체 복사</button>
         </div>
       </div>
       <div id="charList" class="charlist"></div>
@@ -94,15 +97,14 @@
         <div class="card__tools">
           <span id="negCount" class="count"></span>
           <div class="seg" data-target="negative" role="group" aria-label="네거티브 프롬프트 보기 방식">
-            <button type="button" class="seg__btn is-on" data-view="tags">태그</button>
-            <button type="button" class="seg__btn" data-view="raw">원문</button>
-            <button type="button" class="seg__btn" data-view="webui" title="NAI의 {}, [] 강조를 WebUI의 (태그:가중치) 형식으로 변환합니다">WebUI 변환</button>
+            <button type="button" class="seg__btn is-on" data-view="raw">원문</button>
+            <button type="button" class="seg__btn" data-view="tags">태그</button>
           </div>
           <button type="button" class="btn btn--copy" data-copy="negative">복사</button>
         </div>
       </div>
-      <div id="negativeTags" class="tags"></div>
-      <pre id="negativeRaw" class="pre" hidden></pre>
+      <div id="negativeTags" class="tags" hidden></div>
+      <pre id="negativeRaw" class="pre"></pre>
     </article>
 
     <!-- 생성 옵션 -->
