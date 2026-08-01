@@ -79,6 +79,7 @@ src/comfy.js               ComfyUI 노드 그래프에서 프롬프트 추출
 src/prompt-converter.js    NAI → WebUI 가중치 변환
 test/prompt-split.test.mjs 프롬프트 / 네거티브 분리 회귀 테스트
 test/split-tags.test.mjs   태그 쪼개기 회귀 테스트
+test/metadata-read.test.mjs 청크 · EXIF 읽기 회귀 테스트
 ```
 
 ## 알려진 제약
@@ -86,6 +87,7 @@ test/split-tags.test.mjs   태그 쪼개기 회귀 테스트
 - 웹페이지에서 끌어다 놓은 이미지는 그 사이트가 외부 접근(CORS)을 허용할 때만 읽을 수 있습니다. 막혀 있으면 파일로 저장한 뒤 올려 주세요.
 - Stealth PNG Info 는 픽셀을 그대로 읽어야 해서 손실 압축(JPEG, 손실 WebP)된 이미지에서는 복원되지 않습니다.
 - `DecompressionStream` 을 쓰므로 최신 브라우저(Chrome/Edge 80+, Firefox 113+, Safari 16.4+)가 필요합니다.
+- **프롬프트는 그림의 설명이 아니라 생성 요청입니다.** 모델이 프롬프트를 그대로 따르지 않는 일이 흔하므로, 프롬프트와 그림이 어긋나는 것 자체는 메타데이터가 틀렸다는 뜻이 아닙니다. 다만 한 파일에 생성 정보가 두 벌 들어있거나 픽셀에 숨은 정보가 따로 있으면 화면 위쪽에 알려 줍니다.
 
 ## 참고
 

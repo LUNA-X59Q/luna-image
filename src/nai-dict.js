@@ -111,16 +111,24 @@ export function parseWebuiExif(parametersStr) {
   return { ...options, ...etc, prompt, uc: negativePrompt, negative_prompt: negativePrompt };
 }
 
+/** NAI v4 의 `v4_prompt.caption.base_caption`. 없으면 빈 문자열. */
+export function baseCaption(node) {
+  const text = node?.caption?.base_caption;
+  return typeof text === 'string' ? text.trim() : '';
+}
+
 /** 평평한 메타데이터 사전을 {prompt, negative_prompt, option, etc} 로 정리한다. */
 export function buildNaiDict(exifDict) {
   if (!exifDict || typeof exifDict !== 'object') return null;
 
   const naiDict = {};
-  naiDict.prompt = String(exifDict.prompt ?? '').trim();
+  // 최상위 prompt 가 비어 있는 v4 이미지가 있다. 그때는 v4_prompt 안의 본문을 쓴다.
+  naiDict.prompt = String(exifDict.prompt ?? '').trim() || baseCaption(exifDict.v4_prompt);
 
   if (exifDict.uc != null) naiDict.negative_prompt = String(exifDict.uc).trim();
   else if (exifDict.negative_prompt != null) naiDict.negative_prompt = String(exifDict.negative_prompt).trim();
   else naiDict.negative_prompt = '';
+  if (!naiDict.negative_prompt) naiDict.negative_prompt = baseCaption(exifDict.v4_negative_prompt);
 
   const option = {};
   for (const key of TARGETKEY_NAIDICT_OPTION) {
@@ -147,6 +155,13 @@ export function buildNaiDict(exifDict) {
     delete etc.v4_prompt;
     delete etc.v4_negative_prompt;
   }
+
+  // v4 는 프롬프트를 두 군데에 적는다. 위에서 고른 쪽과 다를 때만 남으므로
+  // (같으면 pruneEtc 가 걷어낸다) 값이 보이면 두 벌이 어긋났다는 뜻이다.
+  const base = baseCaption(exifDict.v4_prompt);
+  const negBase = baseCaption(exifDict.v4_negative_prompt);
+  if (base) etc['v4_prompt.base_caption'] = base;
+  if (negBase) etc['v4_negative_prompt.base_caption'] = negBase;
 
   naiDict.etc = etc;
 
@@ -243,14 +258,46 @@ export function tryParseJson(text) {
   }
 }
 
+/** 이 후보에 생성 정보로 읽힐 만한 키가 들어있는가. */
+function hasGenerationInfo(info) {
+  return Boolean(
+    info && (info.Comment != null || info.parameters != null
+      || info.UserComment != null || info.prompt != null),
+  );
+}
+
+/**
+ * 화면에 보이는 값이 이미지의 것이 아닐 수 있는 정황을 모은다.
+ * 한 파일에 생성 정보가 두 벌 들어있는 일이 실제로 있어서(다시 저장하는 도구가
+ * 예전 청크를 남기거나, 픽셀에 숨은 정보가 따로 있는 경우) 조용히 하나만 고르면
+ * 프롬프트가 그림과 안 맞는 이유를 알 수 없다.
+ */
+function conflictNotes(winner, usable) {
+  const notes = [];
+
+  const duplicates = Object.keys(winner.info).filter((key) => / \(\d+\)$/.test(key));
+  if (duplicates.length > 0) {
+    notes.push(`같은 이름의 메타데이터가 두 벌 이상 들어있습니다 (${duplicates.join(', ')}). 먼저 쓰인 쪽을 표시하고 있습니다`);
+  }
+
+  const others = usable.filter((c) => c !== winner && hasGenerationInfo(c.info));
+  if (others.length > 0) {
+    notes.push(`${others.map((c) => c.label).join(' · ')} 에도 생성 정보가 따로 있습니다. 지금 보이는 값은 ${winner.label} 쪽입니다`);
+  }
+
+  return notes;
+}
+
 /**
  * 메타데이터 후보들을 순서대로 시도해 가장 잘 해석된 결과를 돌려준다.
  * @param {Array<{label: string, info: object|null, raw?: string|null}>} candidates
- * @returns {{naiDict: object|null, status: number, source: string|null, raw: object|null}}
+ * @returns {{naiDict: object|null, status: number, source: string|null, raw: object|null, notes: string[]}}
  */
 export function getNaiDict(candidates) {
   const usable = candidates.filter((c) => c.info && Object.keys(c.info).length > 0);
-  if (usable.length === 0) return { naiDict: null, status: RESULT.NONE, source: null, raw: null };
+  if (usable.length === 0) {
+    return { naiDict: null, status: RESULT.NONE, source: null, raw: null, notes: [] };
+  }
 
   // 1순위: NAI 방식 — Comment 키에 담긴 JSON
   for (const candidate of usable) {
@@ -264,7 +311,13 @@ export function getNaiDict(candidates) {
       for (const [key, value] of Object.entries(candidate.info)) {
         if (key !== 'Comment' && !(key in naiDict.etc)) naiDict.etc[key] = value;
       }
-      return { naiDict: pruneEtc(naiDict), status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
+      return {
+        naiDict: pruneEtc(naiDict),
+        status: RESULT.PARSED,
+        source: candidate.label,
+        raw: candidate.info,
+        notes: conflictNotes(candidate, usable),
+      };
     }
   }
 
@@ -282,6 +335,7 @@ export function getNaiDict(candidates) {
         status: RESULT.PARSED,
         source: `${candidate.label} · ComfyUI`,
         raw: candidate.info,
+        notes: conflictNotes(candidate, usable),
       };
     }
   }
@@ -292,10 +346,22 @@ export function getNaiDict(candidates) {
     if (!exifDict) continue;
     const naiDict = buildNaiDict(exifDict);
     if (hasPrompt(naiDict)) {
-      return { naiDict: pruneEtc(naiDict), status: RESULT.PARSED, source: candidate.label, raw: candidate.info };
+      return {
+        naiDict: pruneEtc(naiDict),
+        status: RESULT.PARSED,
+        source: candidate.label,
+        raw: candidate.info,
+        notes: conflictNotes(candidate, usable),
+      };
     }
   }
 
   // 해석은 못 했지만 보여줄 원본은 있는 경우
-  return { naiDict: null, status: RESULT.RAW_ONLY, source: usable[0].label, raw: usable[0].info };
+  return {
+    naiDict: null,
+    status: RESULT.RAW_ONLY,
+    source: usable[0].label,
+    raw: usable[0].info,
+    notes: conflictNotes(usable[0], usable),
+  };
 }
