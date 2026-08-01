@@ -31,6 +31,21 @@ function indexOfZero(bytes, from, to) {
 }
 
 /**
+ * 같은 키의 청크가 여러 개일 때 덮어쓰지 않는다.
+ * 이미지를 다시 저장하는 도구가 예전 생성 정보를 남긴 채 새 청크를 덧붙이는 일이 있어,
+ * 그냥 덮어쓰면 어느 쪽이 이 이미지의 것인지 확인할 길이 사라진다.
+ */
+function put(info, key, value) {
+  if (!(key in info)) {
+    info[key] = value;
+    return;
+  }
+  let n = 2;
+  while (`${key} (${n})` in info) n++;
+  info[`${key} (${n})`] = value;
+}
+
+/**
  * PNG 바이트에서 텍스트 청크를 모두 읽어 평범한 객체로 돌려준다.
  * @returns {Promise<Record<string, string>>}
  */
@@ -52,13 +67,13 @@ export async function readPngTextChunks(bytes) {
       if (type === 'tEXt') {
         const sep = indexOfZero(bytes, start, end);
         if (sep !== -1) {
-          info[decodeText(bytes.subarray(start, sep))] = decodeText(bytes.subarray(sep + 1, end));
+          put(info, decodeText(bytes.subarray(start, sep)), decodeText(bytes.subarray(sep + 1, end)));
         }
       } else if (type === 'zTXt') {
         const sep = indexOfZero(bytes, start, end);
         if (sep !== -1) {
           const raw = await inflate(bytes.subarray(sep + 2, end));
-          info[decodeText(bytes.subarray(start, sep))] = decodeText(raw);
+          put(info, decodeText(bytes.subarray(start, sep)), decodeText(raw));
         }
       } else if (type === 'iTXt') {
         const sep = indexOfZero(bytes, start, end);
@@ -69,7 +84,7 @@ export async function readPngTextChunks(bytes) {
           const transEnd = langEnd === -1 ? -1 : indexOfZero(bytes, langEnd + 1, end);
           if (transEnd !== -1) {
             const payload = bytes.subarray(transEnd + 1, end);
-            info[keyword] = utf8.decode(compressed ? await inflate(payload) : payload);
+            put(info, keyword, utf8.decode(compressed ? await inflate(payload) : payload));
           }
         }
       } else if (type === 'IEND') {

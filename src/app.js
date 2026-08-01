@@ -157,7 +157,7 @@ async function loadFromUrl(url) {
 // ── 렌더링 ────────────────────────────────────────────────
 
 function render(result, format) {
-  const { naiDict, status, source, raw } = result;
+  const { naiDict, status, source, raw, notes } = result;
   current.naiDict = naiDict;
   current.raw = raw;
 
@@ -188,7 +188,14 @@ function render(result, format) {
     return;
   }
 
-  setStatus('', null);
+  // 한 파일에 생성 정보가 두 벌 들어있는 등, 보이는 값이 이 이미지의 것이 아닐 수
+  // 있는 경우를 알린다. 조용히 하나만 고르면 프롬프트가 그림과 안 맞아도 알 수 없다.
+  if (notes?.length) {
+    setStatus(notes.join(' · '), 'warn');
+    el.cardRaw.open = true;
+  } else {
+    setStatus('', null);
+  }
   el.cardPrompt.hidden = false;
   el.cardNegative.hidden = false;
   renderText('prompt');
