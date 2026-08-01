@@ -55,6 +55,12 @@ npx http-server -p 8080 -c-1
 python3 -m http.server 8080
 ```
 
+프롬프트 · 네거티브 프롬프트 분리는 의존성 없는 테스트로 지켜 둡니다.
+
+```sh
+node --test
+```
+
 ## 구조
 
 ```
@@ -70,6 +76,7 @@ src/stealth-pnginfo.js     Stealth PNG Info 디코더
 src/nai-dict.js            메타데이터 → 프롬프트 / 옵션 / 기타 정리
 src/comfy.js               ComfyUI 노드 그래프에서 프롬프트 추출
 src/prompt-converter.js    NAI → WebUI 가중치 변환
+test/prompt-split.test.mjs 프롬프트 / 네거티브 분리 회귀 테스트
 ```
 
 ## 알려진 제약

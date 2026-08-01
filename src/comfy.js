@@ -22,6 +22,9 @@ const MODEL_KEYS = ['ckpt_name', 'unet_name', 'model_name'];
 const NEGATIVE_TITLE = /negative|네거티브|부정/i;
 /** 입력 이름이 텍스트를 담을 법한가. */
 const TEXTY_KEY = /text|string|prompt|caption|description/i;
+/** 입력 이름에 붙은 극성 표시. `text_negative` 처럼 이름만으로 어느 쪽인지 알 수 있다. */
+const NEGATIVE_KEY = /(^|[^a-z])(neg|negative|uc)([^a-z]|$)/i;
+const POSITIVE_KEY = /(^|[^a-z])(pos|positive)([^a-z]|$)/i;
 
 /** 생성 크기가 들어있는 입력 이름 짝. 앞쪽이 우선한다. */
 const SIZE_KEY_PAIRS = [['image_width', 'image_height'], ['width', 'height']];
@@ -39,11 +42,33 @@ export function isComfyGraph(value) {
   return typed.length > 0 && typed.length >= nodes.length / 2;
 }
 
+/** 프롬프트를 담고 있을 만한 입력 이름. 알려진 이름이 앞서고, 나머지는 이름 생김새로 고른다. */
+function textInputKeys(inputs) {
+  const known = TEXT_KEYS.filter((key) => key in inputs);
+  const extra = Object.keys(inputs).filter((key) => !known.includes(key) && TEXTY_KEY.test(key));
+  return { known, extra };
+}
+
+/**
+ * 한 노드가 positive · negative 텍스트를 함께 들고 있으면 이름으로 갈라낸다.
+ * 프롬프트 스타일러처럼 출력이 둘인 노드는 양쪽 링크가 같은 노드를 가리키는데,
+ * 이걸 구분하지 않으면 네거티브 자리에 프롬프트가 그대로 실린다.
+ */
+function keysForPolarity(keys, polarity) {
+  const wanted = polarity === 'negative' ? NEGATIVE_KEY : POSITIVE_KEY;
+  const other = polarity === 'negative' ? POSITIVE_KEY : NEGATIVE_KEY;
+  const matched = keys.filter((key) => wanted.test(key));
+  if (matched.length > 0) return matched;
+  // 반대쪽 이름이 붙은 입력은 건드리지 않는다. 극성이 없는 이름만 남긴다.
+  return keys.filter((key) => !other.test(key));
+}
+
 /**
  * 입력값이 문자열이면 그대로, `[노드번호, 출력번호]` 링크면 그 노드까지 따라가 문자열을 찾는다.
+ * polarity 는 지금 찾는 쪽이 프롬프트인지 네거티브인지다.
  * seen 으로 순환 참조와 같은 노드 중복 수집을 막는다.
  */
-function resolveText(graph, value, seen) {
+function resolveText(graph, value, seen, polarity) {
   if (typeof value === 'string') return value;
   if (!Array.isArray(value) || value.length === 0) return '';
 
@@ -54,18 +79,19 @@ function resolveText(graph, value, seen) {
   const node = graph[nodeId];
   if (!node?.inputs || typeof node.inputs !== 'object') return '';
 
+  const { known, extra } = textInputKeys(node.inputs);
+
   const parts = [];
-  for (const key of TEXT_KEYS) {
-    if (!(key in node.inputs)) continue;
-    const text = resolveText(graph, node.inputs[key], seen).trim();
+  for (const key of keysForPolarity(known, polarity)) {
+    const text = resolveText(graph, node.inputs[key], seen, polarity).trim();
     if (text && !parts.includes(text)) parts.push(text);
   }
   if (parts.length > 0) return parts.join(', ');
 
   // 알려진 입력 이름이 없으면 이름이 텍스트처럼 생긴 입력만 훑는다.
   // class_type 만 보고 아무 문자열이나 집으면 콤보 값(해상도, 파일명 등)이 딸려온다.
-  for (const [key, input] of Object.entries(node.inputs)) {
-    if (!TEXTY_KEY.test(key)) continue;
+  for (const key of keysForPolarity(extra, polarity)) {
+    const input = node.inputs[key];
     if (typeof input === 'string' && looksLikePrompt(input)) return input;
   }
   return '';
@@ -100,16 +126,56 @@ function findSamplers(graph) {
   );
 }
 
-/** 샘플러를 못 찾았을 때 텍스트 인코드 노드를 제목으로 갈라 모은다. */
+/**
+ * positive · negative 로 이름 붙은 입력에서 링크를 거슬러 올라가며 노드에 극성을 표시한다.
+ * 제목은 사용자가 붙이기 나름이라 비어 있는 일이 많으므로, 연결 관계를 먼저 본다.
+ * 양쪽에서 함께 쓰이는 노드(체크포인트 로더 등)는 'both' 로 두어 판단에서 뺀다.
+ */
+function polarityMap(graph) {
+  const map = new Map();
+
+  const mark = (value, polarity, seen) => {
+    if (!Array.isArray(value) || value.length === 0) return;
+    const nodeId = String(value[0]);
+    if (seen.has(nodeId)) return;
+    seen.add(nodeId);
+
+    const previous = map.get(nodeId);
+    map.set(nodeId, previous && previous !== polarity ? 'both' : polarity);
+
+    const node = graph[nodeId];
+    if (!node?.inputs || typeof node.inputs !== 'object') return;
+    for (const input of Object.values(node.inputs)) mark(input, polarity, seen);
+  };
+
+  for (const node of Object.values(graph)) {
+    if (!node?.inputs || typeof node.inputs !== 'object') continue;
+    for (const [key, value] of Object.entries(node.inputs)) {
+      if (NEGATIVE_KEY.test(key)) mark(value, 'negative', new Set());
+      else if (POSITIVE_KEY.test(key)) mark(value, 'positive', new Set());
+    }
+  }
+
+  return map;
+}
+
+/** 샘플러를 못 찾았을 때 텍스트 인코드 노드를 극성별로 갈라 모은다. */
 function collectEncoderTexts(graph) {
+  const linked = polarityMap(graph);
   const positive = [];
   const negative = [];
 
   for (const [nodeId, node] of Object.entries(graph)) {
     if (!/CLIPTextEncode|TextEncode/i.test(node?.class_type ?? '')) continue;
-    const text = cleanPrompt(resolveText(graph, [nodeId, 0], new Set()));
+
+    const byLink = linked.get(nodeId);
+    const polarity = byLink === 'positive' || byLink === 'negative'
+      ? byLink
+      : (NEGATIVE_TITLE.test(node._meta?.title ?? '') ? 'negative' : 'positive');
+
+    const text = cleanPrompt(resolveText(graph, [nodeId, 0], new Set(), polarity));
     if (!text) continue;
-    (NEGATIVE_TITLE.test(node._meta?.title ?? '') ? negative : positive).push(text);
+    (polarity === 'negative' ? negative : positive).push(text);
   }
 
   return { prompt: positive.join(', '), negative: negative.join(', ') };
@@ -218,8 +284,8 @@ export function comfyToExifDict(graph) {
   let sampler = null;
 
   for (const node of findSamplers(graph)) {
-    const positiveText = cleanPrompt(resolveText(graph, node.inputs.positive, new Set()));
-    const negativeText = cleanPrompt(resolveText(graph, node.inputs.negative, new Set()));
+    const positiveText = cleanPrompt(resolveText(graph, node.inputs.positive, new Set(), 'positive'));
+    const negativeText = cleanPrompt(resolveText(graph, node.inputs.negative, new Set(), 'negative'));
     if (positiveText || negativeText) {
       prompt = positiveText;
       negative = negativeText;

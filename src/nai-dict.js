@@ -33,52 +33,82 @@ export const RESULT = {
 
 const OPTION_KEY_SET = new Set(TARGETKEY_NAIDICT_OPTION.map((k) => k.toLowerCase()));
 
+const NEGATIVE_MARK = 'Negative prompt:';
+
+/**
+ * 옵션 줄의 `키: 값` 규칙. WebUI 가 쓰는 것과 같은 규칙이라
+ * `Lora hashes: "a: 1, b: 2"` 처럼 따옴표 안에 든 쉼표도 갈라지지 않는다.
+ */
+const WEBUI_PARAM = /\s*(\w[\w \-/]+):\s*("(?:\\.|[^\\"])+"|[^,]*)(?:,|$)/g;
+
+function readParams(line) {
+  return [...line.matchAll(WEBUI_PARAM)];
+}
+
+/**
+ * 마지막 줄이 옵션 줄인지 본다. 프롬프트에도 `(bad hands:1.2), (bad anatomy:1.3)` 처럼
+ * 콜론이 들어가므로, 줄 첫머리부터 `키: 값` 으로 시작하면서 아는 옵션 이름을 하나는
+ * 들고 있어야 옵션으로 인정한다.
+ */
+function isOptionLine(line) {
+  const params = readParams(line);
+  if (params.length === 0 || params[0].index !== 0) return false;
+
+  const hasKnownKey = params.some(([, rawKey]) => {
+    const key = rawKey.trim().toLowerCase();
+    return OPTION_KEY_SET.has(WEBUI_OPTION_MAPPING[key] ?? key);
+  });
+  return hasKnownKey || params.length >= 3;
+}
+
 /** WebUI 의 `parameters` 문자열을 파싱한다. */
 export function parseWebuiExif(parametersStr) {
-  const lines = String(parametersStr).split(/\r?\n/);
-  if (lines.length === 0) return {};
+  const lines = String(parametersStr).trim().split(/\r?\n/);
 
-  const negIndex = lines.findIndex((line) => line.trim().startsWith('Negative prompt:'));
-
-  let prompt;
-  let negativePrompt;
-  let optionLines;
-  if (negIndex > 0) {
-    prompt = lines.slice(0, negIndex).join('\n').trim();
-    negativePrompt = lines[negIndex].slice('Negative prompt:'.length).trim();
-    optionLines = lines.slice(negIndex + 1);
-  } else {
-    prompt = lines.join('\n').trim();
-    negativePrompt = '';
-    optionLines = [];
+  // 옵션은 언제나 마지막 한 줄이다. 옵션 줄로 보이지 않으면 프롬프트로 돌려보낸다.
+  // 이렇게 해야 여러 줄에 걸친 네거티브 프롬프트의 둘째 줄부터가 옵션으로 새지 않는다.
+  let optionLine = lines.pop() ?? '';
+  if (!isOptionLine(optionLine)) {
+    lines.push(optionLine);
+    optionLine = '';
   }
+
+  // `Negative prompt:` 를 만난 뒤로는 옵션 줄 전까지 전부 네거티브 프롬프트다.
+  const promptLines = [];
+  const negativeLines = [];
+  let target = promptLines;
+  for (const rawLine of lines) {
+    let line = rawLine.trim();
+    if (line.startsWith(NEGATIVE_MARK)) {
+      target = negativeLines;
+      line = line.slice(NEGATIVE_MARK.length).trim();
+    }
+    target.push(line);
+  }
+
+  const prompt = promptLines.join('\n').trim();
+  const negativePrompt = negativeLines.join('\n').trim();
 
   const options = {};
   const etc = {};
 
-  for (const line of optionLines) {
-    for (const rawPart of line.trim().split(',')) {
-      const part = rawPart.trim();
-      if (!part) continue;
+  for (const [, rawKey, rawValue] of readParams(optionLine)) {
+    const key = rawKey.trim().toLowerCase();
 
-      const colon = part.indexOf(':');
-      if (colon === -1) {
-        etc[part] = '';
-        continue;
-      }
-
-      const key = part.slice(0, colon).trim().toLowerCase();
-      const rawValue = part.slice(colon + 1).trim();
-      const num = Number(rawValue);
-      const value = rawValue !== '' && Number.isFinite(num) ? num : rawValue;
-
-      const mapped = WEBUI_OPTION_MAPPING[key] ?? key;
-      if (OPTION_KEY_SET.has(mapped.toLowerCase())) options[mapped] = value;
-      else etc[mapped] = value;
+    let text = rawValue.trim();
+    if (text.length > 1 && text.startsWith('"') && text.endsWith('"')) {
+      text = tryParseJson(text) ?? text.slice(1, -1);
     }
+    const num = Number(text);
+    const value = text !== '' && Number.isFinite(num) ? num : text;
+
+    const mapped = WEBUI_OPTION_MAPPING[key] ?? key;
+    if (OPTION_KEY_SET.has(mapped.toLowerCase())) options[mapped] = value;
+    else etc[mapped] = value;
   }
 
-  return { prompt, uc: negativePrompt, negative_prompt: negativePrompt, ...options, ...etc };
+  // 프롬프트는 맨 뒤에 둔다. 옵션 줄에 같은 이름의 키가 있어도 덮어쓰지 못하게.
+  return { ...options, ...etc, prompt, uc: negativePrompt, negative_prompt: negativePrompt };
 }
 
 /** 평평한 메타데이터 사전을 {prompt, negative_prompt, option, etc} 로 정리한다. */
