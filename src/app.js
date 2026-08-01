@@ -3,6 +3,7 @@ import { isJpeg, isWebp, readJpegMetadata, readWebpMetadata } from './exif.js';
 import { getImageData, readStealthInfo } from './stealth-pnginfo.js';
 import { getNaiDict, tryParseJson, RESULT } from './nai-dict.js';
 import { convertToWebui } from './prompt-converter.js';
+import { splitTags } from './tags.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -306,38 +307,6 @@ function sectionHead(titleNode, text, message) {
 
   head.append(titleNode, button);
   return head;
-}
-
-/**
- * 쉼표로 태그를 나눈다. 단 NAI V4 의 `1.5::태그, 태그::` 가중치 묶음은
- * 통째로 한 덩어리로 둔다. 안쪽 쉼표까지 자르면 가중치가 깨진다.
- */
-function splitTags(text) {
-  const source = String(text || '');
-  const tags = [];
-  let buffer = '';
-  let inGroup = false;
-
-  const flush = () => {
-    // 줄바꿈과 이어진 공백은 한 칸으로 눌러 둔다. 그대로 두면 붙여넣었을 때 지저분하다.
-    const tag = buffer.replace(/\s+/g, ' ').trim();
-    if (tag) tags.push(tag);
-    buffer = '';
-  };
-
-  for (let i = 0; i < source.length; i++) {
-    if (source[i] === ':' && source[i + 1] === ':') {
-      buffer += '::';
-      inGroup = !inGroup;
-      i++;
-    } else if (source[i] === ',' && !inGroup) {
-      flush();
-    } else {
-      buffer += source[i];
-    }
-  }
-  flush();
-  return tags;
 }
 
 function renderTags(container, text, emptyLabel) {

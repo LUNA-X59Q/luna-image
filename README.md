@@ -55,6 +55,12 @@ npx http-server -p 8080 -c-1
 python3 -m http.server 8080
 ```
 
+프롬프트 · 네거티브 분리와 태그 쪼개기는 의존성 없는 테스트로 지켜 둡니다.
+
+```sh
+node --test
+```
+
 ## 구조
 
 ```
@@ -64,12 +70,15 @@ assets/style.css           스타일
 assets/icon.svg            앱 아이콘 (파비콘 · 홈화면), PNG 는 여기서 뽑아낸 것
 assets/icon-maskable.svg   안드로이드 마스크 대응 아이콘
 src/app.js                 파일 입력 · 화면 그리기
+src/tags.js                프롬프트 문자열 → 태그 쪼개기
 src/png.js                 PNG 텍스트 청크 파서
 src/exif.js                JPEG · WebP 의 EXIF / XMP 파서
 src/stealth-pnginfo.js     Stealth PNG Info 디코더
 src/nai-dict.js            메타데이터 → 프롬프트 / 옵션 / 기타 정리
 src/comfy.js               ComfyUI 노드 그래프에서 프롬프트 추출
 src/prompt-converter.js    NAI → WebUI 가중치 변환
+test/prompt-split.test.mjs 프롬프트 / 네거티브 분리 회귀 테스트
+test/split-tags.test.mjs   태그 쪼개기 회귀 테스트
 ```
 
 ## 알려진 제약
