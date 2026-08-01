@@ -49,6 +49,46 @@ test('중괄호 강조가 붙은 가중치 묶음도 알아본다', () => {
   assert.deepEqual(splitTags('{1.5::a, b::}, 1girl'), ['{1.5::a, b::}', '1girl']);
 });
 
+test('강조 끝의 쉼표가 만든 닫는 괄호 조각을 앞 태그에 붙인다', () => {
+  assert.deepEqual(
+    splitTags('{{best quality, amazing quality, very aesthetic,}}, 1girl'),
+    ['{{best quality', 'amazing quality', 'very aesthetic}}', '1girl'],
+  );
+});
+
+test('여는 괄호 조각은 다음 태그 앞에 붙인다', () => {
+  assert.deepEqual(splitTags('{{, 1girl, blue sky}}'), ['{{1girl', 'blue sky}}']);
+});
+
+test('대괄호 · 소괄호 강조도 마찬가지다', () => {
+  assert.deepEqual(splitTags('[[lowres, bad anatomy,]], watermark'), ['[[lowres', 'bad anatomy]]', 'watermark']);
+  assert.deepEqual(splitTags('((worst quality, low quality,)), text'), ['((worst quality', 'low quality))', 'text']);
+});
+
+test('괄호만 남는 칩은 생기지 않는다', () => {
+  const junk = splitTags('{{a, b,}}, [[c, d,]], ((e, f,)), g').filter((tag) => /^[{}[\]()]+$/.test(tag));
+  assert.deepEqual(junk, []);
+});
+
+test('태그 보기로 복사해도 강조 괄호 짝이 맞는다', () => {
+  const copied = splitTags('{{best quality, very aesthetic,}}, 1girl, [[blurry,]]').join(', ');
+  assert.equal(copied, '{{best quality, very aesthetic}}, 1girl, [[blurry]]');
+  const open = [...copied].filter((c) => c === '{' || c === '[').length;
+  const close = [...copied].filter((c) => c === '}' || c === ']').length;
+  assert.equal(open, close);
+});
+
+test('짝이 맞는 빈 강조는 버린다', () => {
+  assert.deepEqual(splitTags('1girl, {{ }}, smile'), ['1girl', 'smile']);
+});
+
+test('기호로 된 태그는 그대로 둔다', () => {
+  assert.deepEqual(
+    splitTags('1girl, ^_^, >_<, :d, hatsune miku \\(cosplay\\)'),
+    ['1girl', '^_^', '>_<', ':d', 'hatsune miku \\(cosplay\\)'],
+  );
+});
+
 test('줄바꿈과 빈 태그를 걷어낸다', () => {
   assert.deepEqual(splitTags('1girl,\n  blue\n  sky, , smile'), ['1girl', 'blue sky', 'smile']);
 });
