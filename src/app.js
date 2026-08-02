@@ -1,7 +1,7 @@
 import { isPng, readPngTextChunks } from './png.js';
 import { isJpeg, isWebp, readJpegMetadata, readWebpMetadata } from './exif.js';
 import { getImageData, readStealthInfo } from './stealth-pnginfo.js';
-import { getNaiDict, tryParseJson, RESULT } from './nai-dict.js';
+import { getNaiDict, modelLabel, tryParseJson, RESULT } from './nai-dict.js';
 import { splitTags } from './tags.js';
 
 const $ = (id) => document.getElementById(id);
@@ -16,6 +16,7 @@ const el = {
   status: $('status'),
   result: $('result'),
   sourceBadge: $('sourceBadge'),
+  modelBadge: $('modelBadge'),
   clearBtn: $('clearBtn'),
   cardPrompt: $('cardPrompt'),
   promptTags: $('promptTags'),
@@ -175,6 +176,7 @@ function render(result, format) {
 
   el.result.hidden = false;
   el.sourceBadge.textContent = `${format} · ${source}`;
+  renderModelBadge(naiDict?.etc ?? raw);
   el.cardRaw.hidden = false;
   el.rawText.textContent = JSON.stringify(raw, null, 2);
 
@@ -213,6 +215,15 @@ function render(result, format) {
   el.cardEtc.open = false;
   el.etcCount.textContent = etcEntries.length ? `${etcEntries.length}개` : '';
   renderKeyValues(el.etcList, etcEntries, (key) => key);
+}
+
+/** 어느 모델로 그린 그림인지 배지 한 줄로 보여준다. 알아보지 못하면 자리를 비운다. */
+function renderModelBadge(etc) {
+  const label = modelLabel(etc);
+  el.modelBadge.textContent = label;
+  // 해시까지 붙은 원문은 배지에 다 담기엔 길어서 툴팁으로 남긴다.
+  el.modelBadge.title = typeof etc?.Source === 'string' ? etc.Source.trim() : '';
+  el.modelBadge.hidden = !label;
 }
 
 /** 프롬프트와 네거티브 프롬프트는 보기 방식이 같아서 한 곳에서 그린다. */

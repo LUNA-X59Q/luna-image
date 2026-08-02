@@ -249,6 +249,36 @@ function toExifDict(info) {
   return info;
 }
 
+/**
+ * NAI 는 `Source` 에 `NovelAI Diffusion V4.5 4BDE2A90` 처럼 모델 이름과 해시를 함께 적는다.
+ * 뒤의 해시는 버전을 알아보는 데 방해가 되므로 떼어낸다.
+ */
+const MODEL_HASH = /\s+[0-9a-f]{6,}$/i;
+const NAI_SOURCE = /novel\s*ai\s*diffusion(?:\s*v\s*([\d.]+))?/i;
+
+/**
+ * 배지에 쓸 모델 이름. `NovelAI Diffusion V4.5 4BDE2A90` → `NOVEL AI 4.5`.
+ * 버전을 알 수 없으면 이름만, 그것도 없으면 빈 문자열을 준다.
+ * @param {object} etc 기타 정보 (Source · Software 가 여기 들어온다)
+ */
+export function modelLabel(etc) {
+  const source = typeof etc?.Source === 'string' ? etc.Source.trim() : '';
+  const software = typeof etc?.Software === 'string' ? etc.Software.trim() : '';
+
+  const nai = source.match(NAI_SOURCE);
+  if (nai) return nai[1] ? `NOVEL AI ${trimVersion(nai[1])}` : 'NOVEL AI';
+  // v3 이전 이미지는 Source 에 바탕 모델(Stable Diffusion XL) 이름만 적혀 있어서
+  // 버전을 알 수 없다. 어느 생성기인지는 Software 로 알 수 있으니 이름만 보여준다.
+  if (/novel\s*ai/i.test(software)) return 'NOVEL AI';
+  if (source) return source.replace(MODEL_HASH, '').trim().toUpperCase();
+  return '';
+}
+
+/** `4.50` · `4.` 처럼 뒤에 붙은 군더더기를 떼어 `4.5` · `4` 로 만든다. */
+function trimVersion(version) {
+  return version.includes('.') ? version.replace(/0+$/, '').replace(/\.$/, '') : version;
+}
+
 export function tryParseJson(text) {
   if (typeof text !== 'string') return null;
   try {
