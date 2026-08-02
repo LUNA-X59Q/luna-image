@@ -171,6 +171,14 @@ kbd {
   font-weight: 600;
 }
 
+/* 모델 이름은 형식·출처와 성격이 달라서 배지 색을 눌러 구분한다. */
+.badge--model {
+  background: var(--bg-raise);
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+  letter-spacing: .03em;
+}
+
 .card {
   background: var(--bg-soft);
   border: 1px solid var(--line);
